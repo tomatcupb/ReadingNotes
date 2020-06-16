@@ -19,7 +19,10 @@
     - 方法区（Method Area）
         - 各个线程共享的内存区域
         - 存储已被虚拟机加载的类型信息、常量、静态变量、即时编译器编译后的代码缓存等数据
-        - 运行时常量池（Runtime Constant Pool）  
+        - 实现
+            - Perm的废除：在jdk1.8中，Perm被替换成MetaSpace，MetaSpace存放在本地内存中。原因是永久代进场内存不够用，或者发生内存泄漏。
+            - MetaSpace（元空间）：元空间的本质和永久代类似，都是对JVM规范中方法区的实现。不过元空间与永久代之间最大的区别在于：元空间并不在虚拟机中，而是使用本地内存。   
+        - 运行时常量池（Runtime Constant Pool） 
     ![JVM运行时数据区](./images/jvm内存.png)
     
 1. HotSpot虚拟机对象探秘
