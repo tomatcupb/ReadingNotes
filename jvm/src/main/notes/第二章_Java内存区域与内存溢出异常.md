@@ -22,11 +22,74 @@
         - 实现
             - Perm的废除：在jdk1.8中，Perm被替换成MetaSpace，MetaSpace存放在本地内存中。原因是永久代进场内存不够用，或者发生内存泄漏。
             - MetaSpace（元空间）：元空间的本质和永久代类似，都是对JVM规范中方法区的实现。不过元空间与永久代之间最大的区别在于：元空间并不在虚拟机中，而是使用本地内存。   
-        - 运行时常量池（Runtime Constant Pool） 
-    ![JVM运行时数据区](./images/jvm内存.png)
+        - 运行时常量池（Runtime Constant Pool）  
+![JVM运行时数据区](./images/jvm内存.png)
     
 1. HotSpot虚拟机对象探秘
     - 对象的创建
+        1. 当虚拟机遇到一条new指令时候，首先去检查这个指令的参数是否能在常量池中能否定位到一个类的符号引用，
+        并且检查这个符号引用代表的类是否已被加载、解析和初始化过。如果没有，那必须先执行相应的类加载过程。
+        1. 在类加载检查通过后，接下来虚拟机将为新生的对象分配内存。
+            - 指针碰撞(Bump The Pointer):Java堆空间是连续的，Serial,ParNew
+            - 空闲列表(Free List):Java堆空间是离散的，CMS
+            - 选择哪种分配方式由Java堆是否规整决定，而Java堆是否规整又由所采用的垃圾收集器是否带有空间压缩能力决定的  
+           除了如何划分可用空间外，在并发情况下划分不一定是线程安全的，
+           有可能出现正在给A对象分配内存，指针还没有来得及修改，对象B又同时使用了原来的指针分配内存的情况，解决这个问题两种方案：
+            - 分配内存空间的动作进行同步处理：实际上虚拟机采用CAS配上失败重试的方式保证了更新操作的原子性。
+            - 内存分配的动作按照线程划分在不同的空间中进行：为每个线程在Java堆中预先分配一小块内存，
+            称为本地线程分配缓冲（Thread Local Allocation Buffer, TLAB）。
+        1. 内存分配完后，虚拟机需要将分配到的内存空间(不包括对象头)都初始化为零值。若使用了TLAB，这项工作也可以提前至TLAB分配时进行。
+        1. 接下来虚拟机要对对象进行必要的设置，例如这个对象是哪个类的实例、如何才能找到类的元数据信息、对象的哈希码、对象的GC分代年龄等信息，
+           这些信息都存放在对象的对象头中。
+        1. 做完以上以后，从虚拟机视角来看，一个新的对象已经产生了，
+           但是Java程序视角来看，执行new操作后会接着执行<init>方法，把对象按照程序员的意愿进行初始化，这样一个真正的对象就产生了。
+           ```java
+           public class JavaBase {
+               static Cat cat1 = new Cat(1);
+               public static void main(String[] args) { }
+           }
+           
+           class Cat extends Animal{
+               Fish fish1 = new Fish(1);
+               public Cat(int i){
+                   System.out.println("cat"+i);
+               }
+               static {
+                   System.out.println("static block1");
+               }
+               {
+                   System.out.println("non-static block3");
+               }
+               static {
+                   System.out.println("static block2");
+               }
+               static Fish fish2 = new Fish(2);
+           
+           }
+
+           class Fish{
+               public Fish(int i){
+                   System.out.println("fish"+i);
+               }
+           }
+           
+           class Animal{
+               public Animal(){
+                   System.out.println("this is an animal!");
+               }
+               static Fish fish1 = new Fish(3);
+           }
+            /**
+             *fish3                父类<clinit>
+             *static block1        子类<clinit>
+             *static block2        子类<clinit>
+             *fish2                子类<clinit>
+             *this is an animal!       父类<init>
+             *fish1                子类<init>
+             *non-static block3    子类<init>
+             *cat1                 子类<init>
+             */
+           ```
     - 对象的内存布局
         1. 对象头(Header)
             - Mark Word，对象自身的运行时数据，如HashCode,GC分代年龄，锁状态标志等
