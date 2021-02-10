@@ -3,12 +3,18 @@
 ### 1.概念辨析
 
 1. 工作目录（working directory）--git add-->暂存区域（staging area）--git commit-->存储库（repository）
+
 2. 每次的commit编号是根据**文本内容**，使用SHA-1(secure hash algorithm 1)计算得到的重复率非常低的文本，作为每次commit的识别标记码 
+
 3. 有些版本控制系统会备份每次commit之间改动的历史记录：如增加2行，删除了3行。然后通过这些记录，还原文件。但是**Git并不是做差异备份**，即使只改动一个字，因为计算出来的SHA-1值不同，Git也会为它做出一个新的Blob对象。可以发现，相比于空间的浪费，Git更在意快速高效的控制版本。
+
 4. Git合适自动触发垃圾回收
    1. 当.git/objects目录对象或者打包过的packfile数量过多时
    2. 当执行git push把内容推送到远端服务器时
+   
 5. HEAD是一个指针，指向某一个分支，通常可以把它看做“当前所在分支”。
+
+   ![HEAD](E:\GitWorkspace\ReadingNotes\git_rookie_to_master\images\head.png)
 
 ### 2. 指令解读
 
@@ -101,7 +107,11 @@ reset的不同模式代表着：在版本切换（到更旧或者更新的版本
 
 #### 2.9 分支管理
 
-分支实际上只是一个标签，而并非复制。
+牢记：分支实际上分支只是一个40个字节的**标签**，而**并非复制**。
+
+![分支](E:\GitWorkspace\ReadingNotes\git_rookie_to_master\images\branch.png)
+
+##### 2.9.1 分支的创建与切换
 
 切换分支时：
 
@@ -124,15 +134,99 @@ reset的不同模式代表着：在版本切换（到更旧或者更新的版本
 
 新分支上进行commit↑
 
-| 指令                    | 注释                    |
-| ----------------------- | ----------------------- |
-| git branch              | 查看当前有哪些分支      |
-| git branch cat          | 创建一个叫cat的分支     |
-| git branch -m cat tiger | 修改cat分支名字为tiger  |
-| git branch -d cat       | 删除cat分支             |
-| git branch -D cat       |                         |
-| git checkout cat        | 切换到cat分支           |
-| git checkout -b dog     | 创建并同时切换到dog分支 |
+| 指令                        | 注释                                               |
+| --------------------------- | -------------------------------------------------- |
+| git branch                  | 查看当前有哪些分支                                 |
+| git branch cat              | 创建一个叫cat的分支                                |
+| git branch -m cat tiger     | 修改cat分支名字为tiger                             |
+| git branch -d cat           | 删除cat分支                                        |
+| git branch -D cat           |                                                    |
+| git checkout cat            | 切换到cat分支                                      |
+| git checkout -b dog         | 创建并同时切换到dog分支                            |
+| git branch cat  65fec4      | 根据历史commit 65fec4创建一个新分支cat             |
+| git checkout -b cat  65fec4 | 根据历史commit 65fec4创建一个新分支cat，并切换分支 |
 
+##### 2.9.2 merge分支合并
 
+| 指令                             | 注释                                                     |
+| -------------------------------- | -------------------------------------------------------- |
+| git merge dev1/ git merge s3gb4f | 合并目标分支到当前分支，合并成功后当前分支移动一个commit |
+| git branch new_dev1 b2e3fd       | 恢复已经删除的分支dev1，b2e3fd是dev1分支最后指向的commit |
+| git merge --abort                | 出现冲突时，放弃合并分支                                 |
 
+- 快转模式合并（Fast Forward）：当两个分支是**父子关系**，直接移动标签即可
+
+git merge cat(当前在master分支)↓
+
+![快转模式合并](E:\GitWorkspace\ReadingNotes\git_rookie_to_master\images\git_branch_merge_FF.png)
+
+- 非快转模式合并（Fast Forward）：当两个分支是**兄弟关系**，会产生一个新的commit，再移动标签
+
+git merge dog(当前在cat分支)↓
+
+![非快转模式合并](E:\GitWorkspace\ReadingNotes\git_rookie_to_master\images\git_branch_merge_no_FF.png)
+
+- 合并冲突解决
+
+FF模式的合并不存在冲突，只有标签移动而已。
+
+非FF模式合并时，出现冲突的话需要先手动解决冲突，然后在commit即可。
+
+##### 2.9.3 rebase分支合并
+
+| 指令           | 注释                    |
+| -------------- | ----------------------- |
+| git rebase dog | 以dog为基础版本进行合并 |
+
+类似于嫁接，原先cat分支上两次commit还会存在知道Git垃圾回收清理之，总的来看会减少分支的数量。
+
+使用rebase的时机：对于那些没有push出去的但是感觉有点琐碎混乱的commit，可以先使用rebase来整理分支，然后再推出去。rebase相当于改动了历史记录，而改动已经push出去的历史记录可能给他人带来困扰。因此，如果没有必要，尽量不要使用rebase。
+
+![rebase分支合并](E:\GitWorkspace\ReadingNotes\git_rookie_to_master\images\git_branch_rebase.png)
+
+#### 2.10 修改历史记录（高阶rebase用法）
+
+#### 2.11 标签（tag）
+
+标签与分支都只是一种指向commit对象的指示标，二者的删改均不会影响到被指向的那个对象。二者的区别在于分支会随着Commit而移动，而标签不会。
+
+#### 2.12 远程协作
+
+##### 2.12.1 push
+
+```
+git remote add origin https://github.com/tomatcupb/test_remote.git
+```
+
+这一步是设置远端节点
+
+1. git remote指令主要是进行与远端相关的操作
+2. add 指令是要加入一个远端的节点
+3. 这里的**origin**是一个代名词（惯例，可以改其他的名字），指的是那串**GitHub服务器的位置**。
+
+```
+git push -u origin master
+```
+
+在设置好远端节点后，接下来就是把内容推上去
+
+1. 把master分支的内容推向origin的位置
+2. 在origin远端服务器上，如果master不存在，就创建一个名为master的分支
+3. 如果远端master分支存在，则移动远端master分支的位置，使它指向当前最新的进度
+4. -u参数为设置upstream，第一次设置后之后就可以不用再加上了
+
+##### 2.12.2 pull
+
+![原分支](E:\GitWorkspace\ReadingNotes\git_rookie_to_master\images\git_pull.png)
+
+```
+git pull = git fetch + git merge
+```
+
+![fetch+merge](E:\GitWorkspace\ReadingNotes\git_rookie_to_master\images\git_fetch.png)
+
+pull指令其实就是将线上内容抓下来（Fetch），再更新进度（Merge）。远端的origin/master也是master的一个分支，因此fetch到本地后，之需要通过Fast Forward模式进行合并即可。
+
+clone与pull的区别：
+
+clone一般在第一次下载项目时使用（该路径没有被git init过），而后将使用pull/fetch获取更新
